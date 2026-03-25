@@ -91,7 +91,7 @@ def old_with_fuse_radix_sort [n] 't
 -- input @ ../data/randomints_moderate_500MiB.in
 -- input @ ../data/randomints_sparse_500MiB.in
 -- input @ ../data/randomints_empty_500MiB.in
--- entry expected = old_radix_sort i32.num_bits get_bit_i32
+entry expected = old_radix_sort i32.num_bits get_bit_i32
 
 -- ==
 -- input @ ../data/randomints_full_500MiB.in
