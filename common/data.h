@@ -182,7 +182,6 @@ void read_tuple_u32_u8_array(const char* filename,
     union_indices_size.str[i] = buffer_ptr[i];
   }
 
-
   buffer_ptr += sizeof(uint64_t);
   *indices_size = union_indices_size.i;
   size_t indices_bytes = union_indices_size.i * sizeof(uint32_t);
@@ -192,8 +191,6 @@ void read_tuple_u32_u8_array(const char* filename,
   memcpy(*indices, buffer_ptr, indices_bytes);
   buffer_ptr += indices_bytes;
 
-  assert(*buffer_ptr == '\n');
-  buffer_ptr++;
   uint8_t snd_header[7] = {'b', 2, 1, ' ', ' ', 'u', '8'};
 
   for (size_t i = 0; i < sizeof(snd_header); i++) {
