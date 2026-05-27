@@ -21,32 +21,32 @@ $(DATA_PATH)/tokens_moderate_500MiB.in:
 $(DATA_PATH)/tokens_sparse_500MiB.in:
 	(cd $(DATA_PATH) && make)
 
-tokens_dense_500MiB.out: $(DATA_PATH)/tokens_dense_500MiB.in $(FUTHARK_PROGRAM)
-	cat $< | ./$(FUTHARK_PROGRAM) -b > $@
+tokens_dense_500MiB.out: $(DATA_PATH)/tokens_dense_500MiB.in
+	futhark script ./$(FUTHARK_PROGRAM) 'main ($$loaddata "$<")' -b >$@
 
-tokens_moderate_500MiB.out: $(DATA_PATH)/tokens_moderate_500MiB.in $(FUTHARK_PROGRAM)
-	cat $< | ./$(FUTHARK_PROGRAM) -b > $@
+tokens_moderate_500MiB.out: $(DATA_PATH)/tokens_moderate_500MiB.in
+	futhark script ./$(FUTHARK_PROGRAM) 'main ($$loaddata "$<")' -b >$@
 
-tokens_sparse_500MiB.out: $(DATA_PATH)/tokens_sparse_500MiB.in $(FUTHARK_PROGRAM)
-	cat $< | ./$(FUTHARK_PROGRAM) -b > $@
+tokens_sparse_500MiB.out: $(DATA_PATH)/tokens_sparse_500MiB.in
+	futhark script ./$(FUTHARK_PROGRAM) 'main ($$loaddata "$<")' -b >$@
 
 $(FUTHARK_PROGRAM): $(FUTHARK_PROGRAM).fut
 	futhark pkg sync
-	futhark cuda $< -o $@
+	futhark cuda $< -o $@ --server
 
 $(CUDA_PROGRAM): $(CUDA_PROGRAM).cu $(COMMON_PATH)/sps.cu.h $(COMMON_PATH)/util.cu.h $(COMMON_PATH)/data.h
 	$(COMPILER) $(FLAGS) -o $@ $<
 
-bench: $(DATA_PATH)/tokens_dense_500MiB.in \
-	   $(DATA_PATH)/tokens_moderate_500MiB.in \
-	   $(DATA_PATH)/tokens_sparse_500MiB.in \
-	   tokens_dense_500MiB.out \
-	   tokens_moderate_500MiB.out \
-	   tokens_sparse_500MiB.out \
-	   $(FUTHARK_PROGRAM) \
-	   $(CUDA_PROGRAM)
+bench: $(FUTHARK_PROGRAM) \
+      $(DATA_PATH)/tokens_dense_500MiB.in \
+	    $(DATA_PATH)/tokens_moderate_500MiB.in \
+	    $(DATA_PATH)/tokens_sparse_500MiB.in \
+	    tokens_dense_500MiB.out \
+	    tokens_moderate_500MiB.out \
+	    tokens_sparse_500MiB.out \
+	    $(CUDA_PROGRAM)
 	@echo -e "$(RED)=== FUTHARK LEXER ===$(DEFAULT)"
-	@futhark bench $(FUTHARK_PROGRAM).fut --backend=cuda
+	@futhark bench $(FUTHARK_PROGRAM).fut --backend=cuda --skip-compilation
 	@echo -e "$(RED)===============$(DEFAULT)"
 	@echo -e "$(GREEN)=== CUDA LEXER ===$(DEFAULT)"
 	@./$(CUDA_PROGRAM) $(DATA_PATH)/tokens_dense_500MiB.in tokens_dense_500MiB.out

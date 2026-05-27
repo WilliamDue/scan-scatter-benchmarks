@@ -22,13 +22,13 @@ $(RANDOM_INTS)_full_500MiB.in: $(RANDOM_INTS)
 	./$< 131072000 0 > $@
 
 $(RANDOM_INTS)_dense_500MiB.in: $(RANDOM_INTS)
-	./$< 131072000 5 > $@
+	./$< 131072000 25 > $@
 
 $(RANDOM_INTS)_moderate_500MiB.in: $(RANDOM_INTS)
 	./$< 131072000 50 > $@ 
 
 $(RANDOM_INTS)_sparse_500MiB.in: $(RANDOM_INTS)
-	./$< 131072000 95 > $@
+	./$< 131072000 75 > $@
 
 $(RANDOM_INTS)_empty_500MiB.in: $(RANDOM_INTS)
 	./$< 131072000 100 > $@ 

@@ -26,7 +26,7 @@ bench: $(CUDA_PROGRAM) \
 	   randomints_moderate_500MiB.out \
 	   $(DATA_PATH)/randomints_moderate_500MiB.in
 	@echo -e "$(RED)=== FUTHARK FILTER ===$(DEFAULT)"
-	@futhark bench $(FUTHARK_PROGRAM).fut --backend=cuda
+	@futhark bench $(FUTHARK_PROGRAM).fut --backend=cuda --skip-compilation
 	@echo -e "$(RED)===============$(DEFAULT)"
 	@echo -e "$(GREEN)=== CUDA FILTER ===$(DEFAULT)"
 	@./$(CUDA_PROGRAM) $(DATA_PATH)/randomints_moderate_500MiB.in ./randomints_moderate_500MiB.out

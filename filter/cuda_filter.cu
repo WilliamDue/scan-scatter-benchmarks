@@ -946,7 +946,7 @@ void testFilterTwoKernels(int32_t* input, size_t input_size, int32_t* expected, 
     }
 
     if (test_passes) {
-        compute_descriptors(temp, RUNS, ARRAY_BYTES + temp_size * sizeof(int32_t));
+        compute_descriptors(temp, RUNS, 2 * ARRAY_BYTES + 2 * OFFSETS_BYTES + 2 * FLAGS_BYTES + temp_size * sizeof(int32_t));
     }
 
     free(temp);
