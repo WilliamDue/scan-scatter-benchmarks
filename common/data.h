@@ -157,62 +157,66 @@ void read_i32_bool_array(const char* filename,
 
   free(buffer);
 }
-
-void read_tuple_u32_u8_array(const char* filename,
-                             uint32_t** indices,
-                             size_t* indices_size,
-                             uint8_t** tokens,
-                             size_t* tokens_size) {
-  assert(*indices == NULL);
-  assert(*tokens == NULL);
+uint32_t* read_u32_array(const char* filename, size_t* size) {
   size_t file_size;
   uint8_t* buffer = read_file(filename, &file_size);
   assert(buffer != NULL);
   uint8_t* buffer_ptr = buffer;
-  uint8_t fst_header[7] = {'b', 2, 1, ' ', 'u', '3', '2'};
+  uint8_t header[7] = {'b', 2U, 1U, ' ', 'u', '3', '2'};
 
-  for (size_t i = 0; i < sizeof(fst_header); i++) {
-    assert(buffer_ptr[i] == fst_header[i]);
+  for (size_t i = 0; i < sizeof(header); i++) {
+    assert(buffer_ptr[i] == header[i]);
   }
-  buffer_ptr += sizeof(fst_header);
-  
-  union u64 union_indices_size;
+  buffer_ptr += sizeof(header);
 
-  for (size_t i = 0; i < sizeof(uint64_t); i++) {
-    union_indices_size.str[i] = buffer_ptr[i];
+  union u64 array_size;
+  for (uint8_t i = 0; i < sizeof(uint64_t); i++) {
+    array_size.str[i] = buffer_ptr[i];
   }
-
   buffer_ptr += sizeof(uint64_t);
-  *indices_size = union_indices_size.i;
-  size_t indices_bytes = union_indices_size.i * sizeof(uint32_t);
-  *indices = (uint32_t*) malloc(indices_bytes);
 
-  assert(*indices != NULL);
-  memcpy(*indices, buffer_ptr, indices_bytes);
-  buffer_ptr += indices_bytes;
+  *size = array_size.i;
+  size_t offset = sizeof(header) + sizeof(uint64_t);
+  size_t bytes = file_size - offset;
+  assert(array_size.i == bytes / sizeof(uint32_t));
 
-  uint8_t snd_header[7] = {'b', 2, 1, ' ', ' ', 'u', '8'};
-
-  for (size_t i = 0; i < sizeof(snd_header); i++) {
-    assert(buffer_ptr[i] == snd_header[i]); // printf("%lu\n", buffer_ptr[i]);
-  }
-
-  buffer_ptr += sizeof(snd_header);
-  
-  union u64 union_tokens_size;
-
-  for (size_t i = 0; i < sizeof(uint64_t); i++) {
-    union_tokens_size.str[i] = buffer_ptr[i];
-  }
-
-  buffer_ptr += sizeof(uint64_t);
-  *tokens_size = union_tokens_size.i;
-  size_t tokens_bytes = union_tokens_size.i * sizeof(uint8_t);
-  *tokens = (uint8_t*) malloc(tokens_bytes);
-  assert(*tokens != NULL);
-  memcpy(*tokens, buffer_ptr, tokens_bytes);
-
+  uint32_t* new_buffer = (uint32_t*) malloc(bytes);
+  assert(new_buffer != NULL);
+  memcpy(new_buffer, buffer_ptr, bytes);
   free(buffer);
+
+  return new_buffer;
+}
+
+uint8_t* read_u8_array(const char* filename, size_t* size) {
+  size_t file_size;
+  uint8_t* buffer = read_file(filename, &file_size);
+  assert(buffer != NULL);
+  uint8_t* buffer_ptr = buffer;
+  uint8_t header[7] = {'b', 2U, 1U, ' ', ' ', 'u', '8'};
+
+  for (size_t i = 0; i < sizeof(header); i++) {
+    assert(buffer_ptr[i] == header[i]);
+  }
+  buffer_ptr += sizeof(header);
+
+  union u64 array_size;
+  for (uint8_t i = 0; i < sizeof(uint64_t); i++) {
+    array_size.str[i] = buffer_ptr[i];
+  }
+  buffer_ptr += sizeof(uint64_t);
+
+  *size = array_size.i;
+  size_t offset = sizeof(header) + sizeof(uint64_t);
+  size_t bytes = file_size - offset;
+  assert(array_size.i == bytes / sizeof(uint8_t));
+
+  uint8_t* new_buffer = (uint8_t*) malloc(bytes);
+  assert(new_buffer != NULL);
+  memcpy(new_buffer, buffer_ptr, bytes);
+  free(buffer);
+
+  return new_buffer;
 }
 
 uint8_t* read_u8_file(const char* filename, size_t* size) {

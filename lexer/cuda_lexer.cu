@@ -1041,11 +1041,11 @@ void testLexerTwoKernels(uint8_t* input,
 
     I temp_size = 0;
     gpuAssert(cudaMemcpy(&temp_size, d_new_size, sizeof(I), cudaMemcpyDeviceToHost));
-    const I OUT_WRITE = temp_size * (sizeof(I) + sizeof(token_t));
-    const I IN_READ = IN_ARRAY_BYTES;
-    const I IN_OUT_STATES = 2 * STATES_OUT_BYTES;
-    const I IN_STATE_MAP = sizeof(state_t) * size;
-    const I SCAN_READ =  sizeof(state_t) * (size + size / 2); // Lowerbound, it does more work.
+    const I OUT_WRITE          = temp_size * (sizeof(I) + sizeof(token_t));
+    const I IN_READ            = IN_ARRAY_BYTES;
+    const I IN_OUT_STATES      = 2 * STATES_OUT_BYTES;                      // kernel1 write + kernel2 read
+    const I SCAN_READ_STATES   = sizeof(state_t) * (size + size / 2);       // kernel1 lookback (lowerbound)
+    const I SCAN_READ_INDEX    = sizeof(I)        * (size + size / 2);       // kernel2 lookback (lowerbound)
     
     lexerTwoKernels1<I, BLOCK_SIZE, ITEMS_PER_THREAD><<<NUM_LOGICAL_BLOCKS, BLOCK_SIZE>>>(
         ctx,
@@ -1099,7 +1099,7 @@ void testLexerTwoKernels(uint8_t* input,
     }
 
     if (test_passes) {
-        compute_descriptors(temp, RUNS, IN_READ + IN_STATE_MAP + SCAN_READ + OUT_WRITE + IN_OUT_STATES);
+            compute_descriptors(temp, RUNS, IN_READ + IN_OUT_STATES + SCAN_READ_STATES + SCAN_READ_INDEX + OUT_WRITE);
     }    
 
     free(temp);
@@ -1117,29 +1117,219 @@ void testLexerTwoKernels(uint8_t* input,
     ctx.Cleanup();
 }
 
+#ifdef DEBUG
+#define DEBUG_PRINT(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define DEBUG_PRINT(...) ((void)0)
+#endif
+
+// Token values based on the state encoding:
+// token = (state & TOKEN_MASK) >> TOKEN_OFFSET
+#define TOKEN_SPACE  0
+#define TOKEN_IDENT  1
+#define TOKEN_LPAREN 2
+#define TOKEN_RPAREN 3
+#define TOKEN_DEAD   4
+
+const char* token_name(uint8_t t) {
+    switch (t) {
+        case TOKEN_SPACE:  return "SPACE";
+        case TOKEN_IDENT:  return "IDENT";
+        case TOKEN_LPAREN: return "LPAREN";
+        case TOKEN_RPAREN: return "RPAREN";
+        case TOKEN_DEAD:   return "DEAD";
+        default:           return "UNKNOWN";
+    }
+}
+
+typedef struct {
+    const char*    input;
+    uint32_t*      expected_indices;
+    uint8_t*       expected_tokens;
+    size_t         expected_size;
+    const char*    name;
+} LexerTest;
+
+bool runTest(LexerTest* test) {
+    size_t input_size = strlen(test->input);
+    uint8_t* input = (uint8_t*) test->input;
+
+    DEBUG_PRINT("\n=== Test: %s ===\n", test->name);
+    DEBUG_PRINT("Input: \"%s\" (len=%zu)\n", test->input, input_size);
+    DEBUG_PRINT("Expected %zu tokens:\n", test->expected_size);
+    for (size_t i = 0; i < test->expected_size; i++) {
+        DEBUG_PRINT("  [%zu] index=%u token=%s(%u)\n",
+                    i, test->expected_indices[i],
+                    token_name(test->expected_tokens[i]),
+                    test->expected_tokens[i]);
+    }
+
+    using I = uint32_t;
+    const I size = (I) input_size;
+    const I BLOCK_SIZE = 256;
+    const I ITEMS_PER_THREAD = 31;
+    const I NUM_LOGICAL_BLOCKS = (size + BLOCK_SIZE * ITEMS_PER_THREAD - 1)
+                                 / (BLOCK_SIZE * ITEMS_PER_THREAD);
+
+    uint8_t*         d_in;
+    I*               d_index_out;
+    token_t*         d_token_out;
+    State<state_t>*  d_state_states;
+    State<I>*        d_index_states;
+    uint32_t*        d_dyn_index_ptr;
+    I*               d_new_size;
+    bool*            d_is_valid;
+
+    gpuAssert(cudaMalloc((void**)&d_in,            size * sizeof(uint8_t)));
+    gpuAssert(cudaMalloc((void**)&d_index_out,     size * sizeof(I)));
+    gpuAssert(cudaMalloc((void**)&d_token_out,     size * sizeof(token_t)));
+    gpuAssert(cudaMalloc((void**)&d_state_states,  NUM_LOGICAL_BLOCKS * sizeof(State<state_t>)));
+    gpuAssert(cudaMalloc((void**)&d_index_states,  NUM_LOGICAL_BLOCKS * sizeof(State<I>)));
+    gpuAssert(cudaMalloc((void**)&d_dyn_index_ptr, sizeof(uint32_t)));
+    gpuAssert(cudaMalloc((void**)&d_new_size,      sizeof(I)));
+    gpuAssert(cudaMalloc((void**)&d_is_valid,      sizeof(bool)));
+
+    gpuAssert(cudaMemcpy(d_in, input, size * sizeof(uint8_t), cudaMemcpyHostToDevice));
+    gpuAssert(cudaMemset(d_dyn_index_ptr, 0, sizeof(uint32_t)));
+    gpuAssert(cudaMemset(d_is_valid, 0, sizeof(bool)));
+
+    LexerCtx ctx;
+
+    lexer<I, BLOCK_SIZE, ITEMS_PER_THREAD><<<NUM_LOGICAL_BLOCKS, BLOCK_SIZE>>>(
+        ctx, d_in, d_index_out, d_token_out,
+        d_state_states, d_index_states,
+        size, NUM_LOGICAL_BLOCKS, d_dyn_index_ptr, d_new_size, d_is_valid
+    );
+    gpuAssert(cudaDeviceSynchronize());
+    gpuAssert(cudaPeekAtLastError());
+
+    I result_size = 0;
+    bool is_valid  = false;
+    gpuAssert(cudaMemcpy(&result_size, d_new_size, sizeof(I),    cudaMemcpyDeviceToHost));
+    gpuAssert(cudaMemcpy(&is_valid,    d_is_valid, sizeof(bool), cudaMemcpyDeviceToHost));
+
+    std::vector<I>       h_indices(result_size);
+    std::vector<token_t> h_tokens(result_size);
+    gpuAssert(cudaMemcpy(h_indices.data(), d_index_out, result_size * sizeof(I),       cudaMemcpyDeviceToHost));
+    gpuAssert(cudaMemcpy(h_tokens.data(),  d_token_out, result_size * sizeof(token_t), cudaMemcpyDeviceToHost));
+
+    DEBUG_PRINT("Got %u tokens (valid=%s):\n", result_size, is_valid ? "true" : "false");
+    for (I i = 0; i < result_size; i++) {
+        DEBUG_PRINT("  [%u] index=%u token=%s(%u)\n",
+                    i, h_indices[i],
+                    token_name(h_tokens[i]), h_tokens[i]);
+    }
+
+    bool pass = is_valid;
+    if (!pass) {
+        fprintf(stderr, "FAIL [%s]: lexer did not reach accepting state\n", test->name);
+    }
+    if (pass && result_size != (I) test->expected_size) {
+        fprintf(stderr, "FAIL [%s]: expected %zu tokens, got %u\n",
+                test->name, test->expected_size, result_size);
+        pass = false;
+    }
+    if (pass) {
+        for (I i = 0; i < (I) test->expected_size; i++) {
+            if (h_indices[i] != test->expected_indices[i]) {
+                fprintf(stderr, "FAIL [%s]: index mismatch at %u: expected %u got %u\n",
+                        test->name, i, test->expected_indices[i], h_indices[i]);
+                pass = false; break;
+            }
+            if (h_tokens[i] != test->expected_tokens[i]) {
+                fprintf(stderr, "FAIL [%s]: token mismatch at %u: expected %s got %s\n",
+                        test->name, i,
+                        token_name(test->expected_tokens[i]),
+                        token_name(h_tokens[i]));
+                pass = false; break;
+            }
+        }
+    }
+
+    if (pass) printf("PASS [%s]\n", test->name);
+
+    ctx.Cleanup();
+    gpuAssert(cudaFree(d_in));
+    gpuAssert(cudaFree(d_index_out));
+    gpuAssert(cudaFree(d_token_out));
+    gpuAssert(cudaFree(d_state_states));
+    gpuAssert(cudaFree(d_index_states));
+    gpuAssert(cudaFree(d_dyn_index_ptr));
+    gpuAssert(cudaFree(d_new_size));
+    gpuAssert(cudaFree(d_is_valid));
+
+    return pass;
+}
+
+#ifdef DEBUG
+int main() {
+    // Indices are the end positions (inclusive, 0-indexed) of each token.
+    // Tokens: SPACE=0, IDENT=1, LPAREN=2, RPAREN=3
+
+    // "()" -> LPAREN@0, RPAREN@1
+    uint32_t idx0[] = {0, 1};
+    uint8_t  tok0[] = {TOKEN_LPAREN, TOKEN_RPAREN};
+
+    // "(a)" -> LPAREN@0, IDENT@1, RPAREN@2
+    uint32_t idx1[] = {0, 1, 2};
+    uint8_t  tok1[] = {TOKEN_LPAREN, TOKEN_IDENT, TOKEN_RPAREN};
+
+    // "(foo)" -> LPAREN@0, IDENT@3, RPAREN@4
+    uint32_t idx2[] = {0, 3, 4};
+    uint8_t  tok2[] = {TOKEN_LPAREN, TOKEN_IDENT, TOKEN_RPAREN};
+
+    // "( )" -> LPAREN@0, SPACE@1, RPAREN@2
+    uint32_t idx3[] = {0, 1, 2};
+    uint8_t  tok3[] = {TOKEN_LPAREN, TOKEN_SPACE, TOKEN_RPAREN};
+
+    // "(foo bar)" -> LPAREN@0, IDENT@3, SPACE@4, IDENT@7, RPAREN@8
+    uint32_t idx4[] = {0, 3, 4, 7, 8};
+    uint8_t  tok4[] = {TOKEN_LPAREN, TOKEN_IDENT, TOKEN_SPACE, TOKEN_IDENT, TOKEN_RPAREN};
+
+    // "(foo (bar baz))" -> LPAREN@0, IDENT@3, SPACE@4, LPAREN@5, IDENT@8,
+    //                      SPACE@9, IDENT@12, RPAREN@13, RPAREN@14
+    uint32_t idx5[] = {0, 3, 4, 5, 8, 9, 12, 13, 14};
+    uint8_t  tok5[] = {TOKEN_LPAREN, TOKEN_IDENT, TOKEN_SPACE,
+                       TOKEN_LPAREN, TOKEN_IDENT, TOKEN_SPACE,
+                       TOKEN_IDENT,  TOKEN_RPAREN, TOKEN_RPAREN};
+
+    LexerTest tests[] = {
+        {"()",              idx0, tok0, 2, "empty parens"},
+        {"(a)",             idx1, tok1, 3, "single char ident"},
+        {"(foo)",           idx2, tok2, 3, "ident in parens"},
+        {"( )",             idx3, tok3, 3, "space in parens"},
+        {"(foo bar)",       idx4, tok4, 5, "two idents"},
+        {"(foo (bar baz))", idx5, tok5, 9, "nested parens"},
+    };
+
+    int n_tests = sizeof(tests) / sizeof(tests[0]);
+    int passed  = 0;
+    for (int i = 0; i < n_tests; i++) {
+        if (runTest(&tests[i])) passed++;
+
+    }
+
+    printf("\n%d/%d tests passed\n", passed, n_tests);
+    return passed == n_tests ? 0 : 1;
+}
+
+#else
+
 int main(int32_t argc, char *argv[]) {
-    assert(argc == 3);
+    assert(argc == 4);
     size_t input_size;
-    uint8_t* input = read_u8_file(argv[1], &input_size);
-    uint32_t* expected_indices = NULL;
-    size_t expected_indices_size = 0;
-    uint8_t* expected_tokens = NULL;
-    size_t expected_tokens_size = 0;
-    read_tuple_u32_u8_array(argv[2],
-                            &expected_indices,
-                            &expected_indices_size,
-                            &expected_tokens,
-                            &expected_tokens_size);
+    uint8_t* input = read_u8_array(argv[1], &input_size);
+
+    size_t expected_indices_size;
+    uint32_t* expected_indices = read_u32_array(argv[2], &expected_indices_size);
+
+    size_t expected_tokens_size;
+    uint8_t* expected_tokens = read_u8_array(argv[3], &expected_tokens_size);
+
     assert(expected_indices_size == expected_tokens_size);
-    /*
-    size_t input_size = 14;
-    uint8_t input[14] = {'t', 'e', 's', 't', ' ', 't', 'e', 's', 't', ' ', 't', 'e', 's', 't'};
-    uint32_t expected_indices[5] = {4, 5, 9, 10, 14};
-    uint8_t expected_tokens[5] = {1, 0, 1, 0, 1};
-    size_t expected_indices_size = 5;
-    */
+
     printf("%s:\n", argv[1]);
-    
+
     printf(PAD, "Lexer:");
     testLexer(input, input_size, expected_indices, expected_tokens, expected_indices_size);
     printf(PAD, "Lexer Worse Copy:");
@@ -1153,3 +1343,6 @@ int main(int32_t argc, char *argv[]) {
     gpuAssert(cudaPeekAtLastError());
     return 0;
 }
+
+
+#endif

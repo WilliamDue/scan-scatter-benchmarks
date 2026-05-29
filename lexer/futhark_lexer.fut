@@ -64,22 +64,17 @@ module mk_lexer(L: lexer_context) = {
     map trans_to_endo str
     |> scan compose L.identity_endomorphism
     
-  def lex_with_dead [n'] (offset: i32)
-                         (str: [n']u8):
+  def lex_with_dead [n] (str: [n]u8):
                          [](u32, terminal) =
-    let n = i32.i64 n'
     let endos = traverse str
-    let is = filter (\i -> i == 0 || is_produce endos[i]) (0i32..<n)
-    let new_size = length is
-    in tabulate new_size (
-                  \i ->
-                    let end = if i == new_size - 1 then n else is[i + 1]
-                    let endo = endos[end - 1]
-                    in (u32.i32 (offset + end - 1), to_terminal endo)
+    in tabulate n (\i -> (i == n - 1 || is_produce endos[i + 1], endos[i], i))
+      |> filter (.0)
+      |> map (\(_, endo, end) ->
+                    (u32.i64 end, to_terminal endo)
                 )
     
-  def lex [n'] (str: [n']u8): opt ([](u32, terminal)) =
-    let result = lex_with_dead 0 str
+  def lex [n] (str: [n]u8): opt ([](u32, terminal)) =
+    let result = lex_with_dead str
     let is_valid =
       length result == 0 ||
       (last result).1 L.terminal_module.!= L.dead_terminal
@@ -385,10 +380,20 @@ module lexer = mk_lexer {
 -- input @ ../data/tokens_dense_500MiB.in
 -- input @ ../data/tokens_moderate_500MiB.in
 -- input @ ../data/tokens_sparse_500MiB.in
-entry main (s : []u8) : ([]u32, []u8) =
+entry main (s : []u8) : ?[k].([k]u32, [k]u8) =
   match lexer.lex s
   case #some r -> unzip r
   case #none -> ([], [])
+
+entry indices (s : []u8) : []u32 =
+  match lexer.lex s
+  case #some r -> map (.0) r
+  case #none -> []
+
+entry tokens (s : []u8) : []u8 =
+  match lexer.lex s
+  case #some r -> map (.1) r
+  case #none -> []
 
 entry test (s : []u8) : i64 =
   match lexer.lex s
