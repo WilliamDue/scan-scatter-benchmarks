@@ -1,0 +1,253 @@
+Testing and Benching Single Pass Scan:
+cd common && make
+make[1]: Entering directory '/home/due/git/github.com/due/scan-scatter-benchmarks/common'
+[32m=== CUDA SINGLE PASS SCAN ===[39m
+Number of devices: 1
+Device name: NVIDIA GeForce RTX 4070 SUPER
+Number of hardware threads: 86016
+Max block size: 1024
+Shared memory size: 49152
+
+Testing Block Wide Scan:
+n=64:                                  Passed
+n=65536:                               Passed
+n=67108864:                            Passed
+n=1000:                                Passed
+n=100000:                              Passed
+n=10000000:                            Passed
+
+Testing and Benching Device Wide Single Pass Scan: 
+n=256:                                 8μs (95% CI: [7.8μs, 8.4μs]); 0GB/s
+n=65536:                               9μs (95% CI: [8.9μs, 9.7μs]); 54GB/s
+n=67108864:                            1278μs (95% CI: [1223.4μs, 1332.0μs]); 420GB/s
+n=1000:                                8μs (95% CI: [7.5μs, 8.3μs]); 0GB/s
+n=100000:                              9μs (95% CI: [8.5μs, 9.5μs]); 58GB/s
+n=100000000:                           1904μs (95% CI: [1822.6μs, 1984.5μs]); 421GB/s
+
+Benching cudaMemcpy using device to device on 500MiB of int32:
+n=131072000:                           2535μs (95% CI: [2426.8μs, 2642.4μs]); 414GB/s
+
+Testing and Benching Scan on 500MiB of int32: 
+n=131072000:                           2484μs (95% CI: [2378.4μs, 2589.8μs]); 423GB/s
+
+Testing and Benching Scan on 2GiB of int32: 
+n=524288000:                           9939μs (95% CI: [9516.4μs, 10361.0μs]); 422GB/s
+[32m============[39m
+make[1]: Leaving directory '/home/due/git/github.com/due/scan-scatter-benchmarks/common'
+
+Testing and Benching Filter:
+cd filter && make
+make[1]: Entering directory '/home/due/git/github.com/due/scan-scatter-benchmarks/filter'
+futhark cuda --server futhark_filter.fut -o futhark_filter
+(cd ../data && make)
+make[2]: Entering directory '/home/due/git/github.com/due/scan-scatter-benchmarks/data'
+cc -O3 -Wall -Werror -Wextra -pedantic -g -o randomints randomints.c
+./randomints 131072000 0 > randomints_full_500MiB.in
+./randomints 131072000 25 > randomints_dense_500MiB.in
+./randomints 131072000 50 > randomints_moderate_500MiB.in 
+./randomints 131072000 75 > randomints_sparse_500MiB.in
+./randomints 131072000 100 > randomints_empty_500MiB.in 
+cc -O3 -Wall -Werror -Wextra -pedantic -g -o tokens tokens.c
+./tokens 524288000 0:10 > tokens_dense_500MiB.in 
+./tokens 524288000 100:110 > tokens_moderate_500MiB.in 
+./tokens 524288000 1000:1010 > tokens_sparse_500MiB.in 
+make[2]: Leaving directory '/home/due/git/github.com/due/scan-scatter-benchmarks/data'
+futhark script ./futhark_filter 'main ($loaddata "../data/randomints_dense_500MiB.in")' -b >randomints_dense_500MiB.out
+futhark script ./futhark_filter 'main ($loaddata "../data/randomints_sparse_500MiB.in")' -b >randomints_sparse_500MiB.out
+futhark script ./futhark_filter 'main ($loaddata "../data/randomints_moderate_500MiB.in")' -b >randomints_moderate_500MiB.out
+futhark script ./futhark_filter 'main ($loaddata "../data/randomints_empty_500MiB.in")' -b >randomints_empty_500MiB.out
+futhark script ./futhark_filter 'main ($loaddata "../data/randomints_full_500MiB.in")' -b >randomints_full_500MiB.out
+nvcc -O3 --std=c++14 -diag-suppress 550 -o cuda_filter cuda_filter.cu
+[31m=== FUTHARK FILTER ===[39m
+Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s).
+More runs automatically performed for up to 300s to ensure accurate measurement.
+
+futhark_filter.fut (no tuning file):
+../data/randomints_full_500MiB.in:           3341μs (95% CI: [    3334.9,     3347.6])
+../data/randomints_dense_500MiB.in:          3106μs (95% CI: [    3104.1,     3108.3])
+../data/randomints_moderate_500MiB.in:       2891μs (95% CI: [    2889.6,     2893.3])
+../data/randomints_sparse_500MiB.in:         2721μs (95% CI: [    2720.5,     2721.9])
+../data/randomints_empty_500MiB.in:          2527μs (95% CI: [    2526.2,     2530.0])
+[31m===============[39m
+[32m=== CUDA FILTER ===[39m
+../data/randomints_full_500MiB.in:
+Filter:                                    2458μs (95% CI: [2353.4μs, 2562.3μs]); 427GB/s
+Filter Bool Array:                         2493μs (95% CI: [2386.7μs, 2598.5μs]); 421GB/s
+Filter Coalesced Write:                    2386μs (95% CI: [2284.6μs, 2487.3μs]); 439GB/s
+Filter With Fewer Shared Memory Writes:    2402μs (95% CI: [2300.0μs, 2504.1μs]); 437GB/s
+Filter (CUB):                              2391μs (95% CI: [2289.5μs, 2492.7μs]); 438GB/s
+Filter Two Kernels:                        12803μs (95% CI: [12258.9μs, 13346.8μs]); 450GB/s
+
+../data/randomints_dense_500MiB.in:
+Filter:                                    2076μs (95% CI: [1987.9μs, 2164.3μs]); 444GB/s
+Filter Bool Array:                         2332μs (95% CI: [2232.7μs, 2430.8μs]); 396GB/s
+Filter Coalesced Write:                    2178μs (95% CI: [2085.3μs, 2270.3μs]); 424GB/s
+Filter With Fewer Shared Memory Writes:    2036μs (95% CI: [1949.7μs, 2122.7μs]); 453GB/s
+Filter (CUB):                              2097μs (95% CI: [2008.0μs, 2186.2μs]); 440GB/s
+Filter Two Kernels:                        12523μs (95% CI: [11990.8μs, 13054.9μs]); 450GB/s
+
+../data/randomints_moderate_500MiB.in:
+Filter:                                    1839μs (95% CI: [1760.8μs, 1917.0μs]); 430GB/s
+Filter Bool Array:                         2098μs (95% CI: [2008.7μs, 2186.9μs]); 377GB/s
+Filter Coalesced Write:                    1958μs (95% CI: [1874.8μs, 2041.2μs]); 404GB/s
+Filter With Fewer Shared Memory Writes:    1781μs (95% CI: [1705.6μs, 1856.9μs]); 444GB/s
+Filter (CUB):                              1753μs (95% CI: [1678.8μs, 1827.7μs]); 451GB/s
+Filter Two Kernels:                        12236μs (95% CI: [11716.3μs, 12756.0μs]); 450GB/s
+
+../data/randomints_sparse_500MiB.in:
+Filter:                                    1620μs (95% CI: [1550.9μs, 1688.6μs]); 408GB/s
+Filter Bool Array:                         1886μs (95% CI: [1805.9μs, 1966.1μs]); 350GB/s
+Filter Coalesced Write:                    1724μs (95% CI: [1650.5μs, 1796.9μs]); 383GB/s
+Filter With Fewer Shared Memory Writes:    1551μs (95% CI: [1485.0μs, 1616.8μs]); 426GB/s
+Filter (CUB):                              1519μs (95% CI: [1454.7μs, 1583.9μs]); 435GB/s
+Filter Two Kernels:                        12509μs (95% CI: [11977.8μs, 13041.2μs]); 430GB/s
+
+../data/randomints_empty_500MiB.in:
+Filter:                                    1449μs (95% CI: [1387.7μs, 1511.0μs]); 366GB/s
+Filter Bool Array:                         1734μs (95% CI: [1660.1μs, 1807.5μs]); 306GB/s
+Filter Coalesced Write:                    1550μs (95% CI: [1484.1μs, 1616.1μs]); 343GB/s
+Filter With Fewer Shared Memory Writes:    1367μs (95% CI: [1308.5μs, 1424.9μs]); 389GB/s
+Filter (CUB):                              1242μs (95% CI: [1189.4μs, 1295.1μs]); 427GB/s
+Filter Two Kernels:                        12013μs (95% CI: [11502.3μs, 12523.1μs]); 437GB/s
+[32m============[39m
+make[1]: Leaving directory '/home/due/git/github.com/due/scan-scatter-benchmarks/filter'
+
+Testing and Benching Partition:
+cd partition && make
+make[1]: Entering directory '/home/due/git/github.com/due/scan-scatter-benchmarks/partition'
+futhark cuda --server futhark_partition.fut -o futhark_partition
+futhark script ./futhark_partition 'main ($loaddata "../data/randomints_dense_500MiB.in")' -b >randomints_dense_500MiB.out
+futhark script ./futhark_partition 'main ($loaddata "../data/randomints_sparse_500MiB.in")' -b >randomints_sparse_500MiB.out
+futhark script ./futhark_partition 'main ($loaddata "../data/randomints_moderate_500MiB.in")' -b >randomints_moderate_500MiB.out
+futhark script ./futhark_partition 'main ($loaddata "../data/randomints_empty_500MiB.in")' -b >randomints_empty_500MiB.out
+futhark script ./futhark_partition 'main ($loaddata "../data/randomints_full_500MiB.in")' -b >randomints_full_500MiB.out
+nvcc -O3 --std=c++14 -diag-suppress 550 -diag-suppress 20054 -o cuda_partition cuda_partition.cu
+[31m=== FUTHARK PARTITION ===[39m
+Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s).
+More runs automatically performed for up to 300s to ensure accurate measurement.
+
+futhark_partition.fut (no tuning file):
+../data/randomints_full_500MiB.in:           7761μs (95% CI: [    7743.2,     7782.0])
+../data/randomints_dense_500MiB.in:          7748μs (95% CI: [    7738.5,     7763.8])
+../data/randomints_moderate_500MiB.in:       7748μs (95% CI: [    7733.8,     7771.6])
+../data/randomints_sparse_500MiB.in:         7779μs (95% CI: [    7760.4,     7805.4])
+../data/randomints_empty_500MiB.in:          7758μs (95% CI: [    7739.1,     7784.2])
+[31m===============[39m
+[32m=== CUDA PARTITION ===[39m
+../data/randomints_full_500MiB.in:
+Partition:                             3850μs (95% CI: [3686.8μs, 4014.0μs]); 408GB/s
+Partition Coalesced Write:             3823μs (95% CI: [3660.1μs, 3984.9μs]); 411GB/s
+Partition (CUB):                       2400μs (95% CI: [2297.8μs, 2501.7μs]); 437GB/s
+
+../data/randomints_dense_500MiB.in:
+Partition:                             3939μs (95% CI: [3772.1μs, 4106.8μs]); 399GB/s
+Partition Coalesced Write:             3825μs (95% CI: [3662.8μs, 3987.8μs]); 411GB/s
+Partition (CUB):                       2390μs (95% CI: [2288.5μs, 2491.6μs]); 439GB/s
+
+../data/randomints_moderate_500MiB.in:
+Partition:                             3921μs (95% CI: [3754.8μs, 4088.0μs]); 401GB/s
+Partition Coalesced Write:             3840μs (95% CI: [3676.7μs, 4003.0μs]); 410GB/s
+Partition (CUB):                       2391μs (95% CI: [2289.6μs, 2492.8μs]); 439GB/s
+
+../data/randomints_sparse_500MiB.in:
+Partition:                             3944μs (95% CI: [3776.4μs, 4111.6μs]); 399GB/s
+Partition Coalesced Write:             3843μs (95% CI: [3679.6μs, 4006.2μs]); 409GB/s
+Partition (CUB):                       2390μs (95% CI: [2288.3μs, 2491.3μs]); 439GB/s
+
+../data/randomints_empty_500MiB.in:
+Partition:                             3866μs (95% CI: [3701.4μs, 4029.9μs]); 407GB/s
+Partition Coalesced Write:             3831μs (95% CI: [3668.1μs, 3993.6μs]); 410GB/s
+Partition (CUB):                       2388μs (95% CI: [2286.6μs, 2489.5μs]); 439GB/s
+[32m============[39m
+make[1]: Leaving directory '/home/due/git/github.com/due/scan-scatter-benchmarks/partition'
+
+Testing and Benching Segmented Reduce:
+cd segreduce && make
+make[1]: Entering directory '/home/due/git/github.com/due/scan-scatter-benchmarks/segreduce'
+futhark pkg sync
+futhark cuda futhark_segreduce.fut -o futhark_segreduce --server
+futhark script ./futhark_segreduce 'flags ($loaddata "../data/randomints_dense_500MiB.in")' -b >randomints_dense_500MiB.flags
+futhark script ./futhark_segreduce 'flags ($loaddata "../data/randomints_sparse_500MiB.in")' -b >randomints_sparse_500MiB.flags
+futhark script ./futhark_segreduce 'flags ($loaddata "../data/randomints_moderate_500MiB.in")' -b >randomints_moderate_500MiB.flags
+futhark script ./futhark_segreduce 'flags ($loaddata "../data/randomints_empty_500MiB.in")' -b >randomints_empty_500MiB.flags
+futhark script ./futhark_segreduce 'flags ($loaddata "../data/randomints_full_500MiB.in")' -b >randomints_full_500MiB.flags
+futhark script ./futhark_segreduce 'expected ($loaddata "../data/randomints_dense_500MiB.in") ($loaddata "randomints_dense_500MiB.flags")' -b >randomints_dense_500MiB.out
+futhark script ./futhark_segreduce 'expected ($loaddata "../data/randomints_sparse_500MiB.in") ($loaddata "randomints_sparse_500MiB.flags")' -b >randomints_sparse_500MiB.out
+futhark script ./futhark_segreduce 'expected ($loaddata "../data/randomints_moderate_500MiB.in") ($loaddata "randomints_moderate_500MiB.flags")' -b >randomints_moderate_500MiB.out
+futhark script ./futhark_segreduce 'expected ($loaddata "../data/randomints_empty_500MiB.in") ($loaddata "randomints_empty_500MiB.flags")' -b >randomints_empty_500MiB.out
+futhark script ./futhark_segreduce 'expected ($loaddata "../data/randomints_full_500MiB.in") ($loaddata "randomints_full_500MiB.flags")' -b >randomints_full_500MiB.out
+nvcc -O3 --std=c++14 -diag-suppress 550 -diag-suppress 20054 -o cuda_segreduce cuda_segreduce.cu
+[31m=== FUTHARK SEGREDUCE ===[39m
+Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s).
+More runs automatically performed for up to 300s to ensure accurate measurement.
+
+futhark_segreduce.fut (no tuning file):
+($loaddata "../data/randomints_full_500MiB.in", $loaddata "randomints_full_500MiB.flags"):       4386μs (95% CI: [    4383.6,     4388.7])
+($loaddata "../data/randomints_dense_500MiB.in", $loaddata "randomints_dense_500MiB.flags"):       4211μs (95% CI: [    4208.4,     4213.1])
+($loaddata "../data/randomints_moderate_500MiB.in", $loaddata "randomints_moderate_500MiB.flags"):       4114μs (95% CI: [    4111.8,     4115.8])
+($loaddata "../data/randomints_sparse_500MiB.in", $loaddata "randomints_sparse_500MiB.flags"):       4030μs (95% CI: [    4028.5,     4031.4])
+($loaddata "../data/randomints_empty_500MiB.in", $loaddata "randomints_empty_500MiB.flags"):       3929μs (95% CI: [    3927.7,     3930.9])
+
+futhark_segreduce.fut:expected (no tuning file):
+($loaddata "../data/randomints_full_500MiB.in", $loaddata "randomints_full_500MiB.flags"):      10880μs (95% CI: [   10871.9,    10895.1])
+($loaddata "../data/randomints_dense_500MiB.in", $loaddata "randomints_dense_500MiB.flags"):      10380μs (95% CI: [   10371.5,    10393.6])
+($loaddata "../data/randomints_moderate_500MiB.in", $loaddata "randomints_moderate_500MiB.flags"):       9826μs (95% CI: [    9807.0,     9858.8])
+($loaddata "../data/randomints_sparse_500MiB.in", $loaddata "randomints_sparse_500MiB.flags"):       9027μs (95% CI: [    9015.9,     9052.3])
+($loaddata "../data/randomints_empty_500MiB.in", $loaddata "randomints_empty_500MiB.flags"):       7500μs (95% CI: [    7495.6,     7503.5])
+[31m===============[39m
+[32m=== CUDA SEGREDUCE ===[39m
+../data/randomints_full_500MiB.in:
+Segreduce:                             4318μs (95% CI: [4134.5μs, 4501.5μs]); 273GB/s
+
+../data/randomints_dense_500MiB.in:
+Segreduce:                             4196μs (95% CI: [4018.1μs, 4374.7μs]); 251GB/s
+
+../data/randomints_moderate_500MiB.in:
+Segreduce:                             4081μs (95% CI: [3907.8μs, 4254.6μs]); 226GB/s
+
+../data/randomints_sparse_500MiB.in:
+Segreduce:                             3982μs (95% CI: [3813.3μs, 4151.7μs]); 199GB/s
+
+../data/randomints_empty_500MiB.in:
+Segreduce:                             3855μs (95% CI: [3691.7μs, 4019.3μs]); 171GB/s
+[32m============[39m
+make[1]: Leaving directory '/home/due/git/github.com/due/scan-scatter-benchmarks/segreduce'
+
+Testing and Benching Lexer:
+cd lexer && make
+make[1]: Entering directory '/home/due/git/github.com/due/scan-scatter-benchmarks/lexer'
+futhark pkg sync
+futhark cuda futhark_lexer.fut -o futhark_lexer --server
+futhark script ./futhark_lexer 'indices ($loaddata "../data/tokens_dense_500MiB.in")' -b >tokens_indices_dense_500MiB.out
+futhark script ./futhark_lexer 'indices ($loaddata "../data/tokens_moderate_500MiB.in")' -b >tokens_indices_moderate_500MiB.out
+futhark script ./futhark_lexer 'indices ($loaddata "../data/tokens_sparse_500MiB.in")' -b >tokens_indices_sparse_500MiB.out
+futhark script ./futhark_lexer 'tokens ($loaddata "../data/tokens_dense_500MiB.in")' -b >tokens_tokens_dense_500MiB.out
+futhark script ./futhark_lexer 'tokens ($loaddata "../data/tokens_moderate_500MiB.in")' -b >tokens_tokens_moderate_500MiB.out
+futhark script ./futhark_lexer 'tokens ($loaddata "../data/tokens_sparse_500MiB.in")' -b >tokens_tokens_sparse_500MiB.out
+nvcc -O3 --std=c++14 -diag-suppress 550 -o cuda_lexer cuda_lexer.cu
+[31m=== FUTHARK LEXER ===[39m
+Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s).
+More runs automatically performed for up to 300s to ensure accurate measurement.
+
+futhark_lexer.fut (no tuning file):
+../data/tokens_dense_500MiB.in:         30628μs (95% CI: [   30576.0,    30670.4])
+../data/tokens_moderate_500MiB.in:      19057μs (95% CI: [   19032.6,    19081.3])
+../data/tokens_sparse_500MiB.in:        17332μs (95% CI: [   17314.5,    17350.5])
+[31m===============[39m
+[32m=== CUDA LEXER ===[39m
+../data/tokens_dense_500MiB.in:
+Lexer:                                 8363μs (95% CI: [7568.7μs, 9157.7μs]); 466GB/s
+Lexer Worse Copy:                      12591μs (95% CI: [11394.4μs, 13786.6μs]); 309GB/s
+Lexer Two Kernels:                     9923μs (95% CI: [8980.7μs, 10866.2μs]); 382GB/s
+
+../data/tokens_moderate_500MiB.in:
+Lexer:                                 7766μs (95% CI: [7028.1μs, 8503.6μs]); 412GB/s
+Lexer Worse Copy:                      11811μs (95% CI: [10688.8μs, 12932.8μs]); 271GB/s
+Lexer Two Kernels:                     8953μs (95% CI: [8102.2μs, 9803.2μs]); 346GB/s
+
+../data/tokens_sparse_500MiB.in:
+Lexer:                                 7734μs (95% CI: [6999.4μs, 8468.8μs]); 408GB/s
+Lexer Worse Copy:                      11896μs (95% CI: [10766.0μs, 13026.3μs]); 265GB/s
+Lexer Two Kernels:                     8815μs (95% CI: [7977.8μs, 9652.8μs]); 346GB/s
+[32m============[39m
+make[1]: Leaving directory '/home/due/git/github.com/due/scan-scatter-benchmarks/lexer'
