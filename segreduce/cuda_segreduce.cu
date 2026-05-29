@@ -219,24 +219,19 @@ void testSegreduce(int32_t* vals, bool* flags, size_t _size, int32_t* expected, 
 }
 
 int main(int32_t argc, char *argv[]) {
-    assert(argc == 3);
-    int32_t* vals = NULL;
-    size_t vals_size = 0;
-    bool* flags = NULL;
-    size_t flags_size = 0;
-    read_i32_bool_array(argv[1], &vals, &vals_size, &flags, &flags_size);
+    assert(argc == 4);
+    size_t vals_size;
+    int32_t* vals = read_i32_array(argv[1], &vals_size);
+    size_t flags_size;
+    bool* flags = read_bool_array(argv[2], &flags_size);
     size_t expected_size;
-    int32_t* expected = read_i32_array(argv[2], &expected_size);
+    int32_t* expected = read_i32_array(argv[3], &expected_size);
     assert(vals_size == flags_size);
-    /*
-    int32_t a[6] = {1, 2, 3, 4, 5, 6};
-    bool b[6] = {true, false, false, true, false, false};
-    int32_t c[2] = {6, 15};
-    testSegreduce(a, b, 6, c, 2);
-    */
+
     printf("%s:\n", argv[1]);
     printf(PAD, "Segreduce:");
     testSegreduce(vals, flags, vals_size, expected, expected_size);
+
     free(vals);
     free(flags);
     free(expected);

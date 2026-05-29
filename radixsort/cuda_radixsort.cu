@@ -74,7 +74,9 @@ void testRadixSortCUB(int32_t* input, size_t input_size, int32_t* expected, size
     }
 
     if (test_passes) {
-        compute_descriptors(temp, RUNS, 2 * ARRAY_BYTES);
+        const I RADIX_BITS  = 8;
+        const I NUM_PASSES  = (sizeof(int32_t) * 8 + RADIX_BITS - 1) / RADIX_BITS; // = 4
+        compute_descriptors(temp, RUNS, 2 * NUM_PASSES * ARRAY_BYTES);
     }
 
     free(temp);

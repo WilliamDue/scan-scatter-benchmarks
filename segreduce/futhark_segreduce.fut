@@ -24,30 +24,30 @@ entry flags [n] (as : [n]i32) =
   map2 (\i a -> i == 0 || 0i32 < a) (iota n) as
 
 -- ==
--- input @ randomints_full_500MiB.in
+-- script input { ($loaddata "../data/randomints_full_500MiB.in", $loaddata "randomints_full_500MiB.flags") }
 -- output @ randomints_full_500MiB.out
--- input @ randomints_dense_500MiB.in
+-- script input { ($loaddata "../data/randomints_dense_500MiB.in", $loaddata "randomints_dense_500MiB.flags") }
 -- output @ randomints_dense_500MiB.out
--- input @ randomints_moderate_500MiB.in
+-- script input { ($loaddata "../data/randomints_moderate_500MiB.in", $loaddata "randomints_moderate_500MiB.flags") }
 -- output @ randomints_moderate_500MiB.out
--- input @ randomints_sparse_500MiB.in
+-- script input { ($loaddata "../data/randomints_sparse_500MiB.in", $loaddata "randomints_sparse_500MiB.flags") }
 -- output @ randomints_sparse_500MiB.out
--- input @ randomints_empty_500MiB.in
+-- script input { ($loaddata "../data/randomints_empty_500MiB.in", $loaddata "randomints_empty_500MiB.flags") }
 -- output @ randomints_empty_500MiB.out
 entry main [n] (as: [n]i32) (flags: [n]bool) =
   segreduce' (+) 0 flags as
 
 -- ==
 -- entry: expected
--- input @ randomints_full_500MiB.in
+-- script input { ($loaddata "../data/randomints_full_500MiB.in", $loaddata "randomints_full_500MiB.flags") }
 -- output @ randomints_full_500MiB.out
--- input @ randomints_dense_500MiB.in
+-- script input { ($loaddata "../data/randomints_dense_500MiB.in", $loaddata "randomints_dense_500MiB.flags") }
 -- output @ randomints_dense_500MiB.out
--- input @ randomints_moderate_500MiB.in
+-- script input { ($loaddata "../data/randomints_moderate_500MiB.in", $loaddata "randomints_moderate_500MiB.flags") }
 -- output @ randomints_moderate_500MiB.out
--- input @ randomints_sparse_500MiB.in
+-- script input { ($loaddata "../data/randomints_sparse_500MiB.in", $loaddata "randomints_sparse_500MiB.flags") }
 -- output @ randomints_sparse_500MiB.out
--- input @ randomints_empty_500MiB.in
+-- script input { ($loaddata "../data/randomints_empty_500MiB.in", $loaddata "randomints_empty_500MiB.flags") }
 -- output @ randomints_empty_500MiB.out
 entry expected [n] (as: [n]i32) (flags: [n]bool) =
   segmented_reduce (+) 0 flags as

@@ -248,3 +248,34 @@ uint8_t* read_u8_file(const char* filename, size_t* size) {
   free(buffer);
   return result;
 }
+
+bool* read_bool_array(const char* filename, size_t* size) {
+  size_t file_size;
+  uint8_t* buffer = read_file(filename, &file_size);
+  assert(buffer != NULL);
+  uint8_t* buffer_ptr = buffer;
+  uint8_t header[7] = {'b', 2U, 1U, 'b', 'o', 'o', 'l'};
+
+  for (size_t i = 0; i < sizeof(header); i++) {
+    assert(buffer_ptr[i] == header[i]);
+  }
+  buffer_ptr += sizeof(header);
+
+  union u64 array_size;
+  for (uint8_t i = 0; i < sizeof(uint64_t); i++) {
+    array_size.str[i] = buffer_ptr[i];
+  }
+  buffer_ptr += sizeof(uint64_t);
+
+  *size = array_size.i;
+  size_t offset = sizeof(header) + sizeof(uint64_t);
+  size_t bytes = file_size - offset;
+  assert(array_size.i == bytes / sizeof(bool));
+
+  bool* new_buffer = (bool*) malloc(bytes);
+  assert(new_buffer != NULL);
+  memcpy(new_buffer, buffer_ptr, bytes);
+  free(buffer);
+
+  return new_buffer;
+}
