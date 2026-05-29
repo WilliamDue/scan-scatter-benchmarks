@@ -25,3 +25,6 @@ bench:
 	@echo ""
 	@echo "Testing and Benching Lexer:"
 	cd lexer && make
+	@echo ""
+	@echo "Testing and Benching Radix Sort:"
+	cd radixsort && make
