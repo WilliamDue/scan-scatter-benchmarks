@@ -119,6 +119,57 @@ partition(T* d_in,
 
 template<typename T, typename I, typename PRED, I BLOCK_SIZE, I ITEMS_PER_THREAD>
 __global__ void
+partitionUnordered(T* d_in,
+          T* d_out,
+          volatile State<Tuple<I>>* states,
+          I size,
+          I num_logical_blocks,
+          PRED pred,
+          volatile uint32_t* dyn_idx_ptr) {
+    volatile __shared__ Tuple<I> block[ITEMS_PER_THREAD * BLOCK_SIZE];
+    volatile __shared__ Tuple<I> block_aux[BLOCK_SIZE];
+    T elems[ITEMS_PER_THREAD];
+    uint32_t bools = 0;
+
+    uint32_t dyn_idx = dynamicIndex<uint32_t>(dyn_idx_ptr);
+    I glb_offs = dyn_idx * BLOCK_SIZE * ITEMS_PER_THREAD;
+
+    #pragma unroll
+    for (I i = 0; i < ITEMS_PER_THREAD; i++) {
+        I lid = i * blockDim.x + threadIdx.x;
+        I gid = glb_offs + lid;
+        if (gid < size) {
+            elems[i] = d_in[gid];
+            bool temp = pred(elems[i]);
+            bools |= temp << i;
+            block[lid].first = temp;
+            block[lid].second = !temp;
+        } else {
+            block[lid].first = I();
+            block[lid].second = I();
+        }
+    }
+    __syncthreads();
+
+    scan<Tuple<I>, I, AddTuple<I>, ITEMS_PER_THREAD>(block, block_aux, states, AddTuple<I>(), Tuple<I>(), dyn_idx);
+
+    #pragma unroll
+    for (I i = 0; i < ITEMS_PER_THREAD; i++) {
+        I lid = blockDim.x * i + threadIdx.x;
+        I gid = glb_offs + lid;
+        if (gid < size && ((bools >> i) & 1)) {
+            d_out[block[lid].first - 1] = elems[i];
+        } else if (gid < size && !((bools >> i) & 1)) {
+            d_out[size - block[lid].second] = elems[i];
+        }
+    }
+    
+    __syncthreads();
+}
+
+
+template<typename T, typename I, typename PRED, I BLOCK_SIZE, I ITEMS_PER_THREAD>
+__global__ void
 partitionCoalescedWrite(T* d_in,
                         T* d_out,
                         volatile State<Tuple<I>>* states,
@@ -321,6 +372,78 @@ void testPartition(int32_t* input, size_t input_size, int32_t* expected, size_t 
     gpuAssert(cudaFree(d_offset));
 }
 
+void testPartitionUnordered(int32_t* input, size_t input_size, int32_t* expected, size_t expected_size) {
+    using I = uint32_t;
+    const I size = input_size;
+    const I BLOCK_SIZE = 256;
+    const I ITEMS_PER_THREAD = 13;
+    assert(ITEMS_PER_THREAD <= 32);
+    const I NUM_LOGICAL_BLOCKS = (size + BLOCK_SIZE * ITEMS_PER_THREAD - 1) / (BLOCK_SIZE * ITEMS_PER_THREAD);
+    const I ARRAY_BYTES = size * sizeof(int32_t);
+    const I STATES_BYTES = NUM_LOGICAL_BLOCKS * sizeof(State<Tuple<I>>);
+    const I WARMUP_RUNS = 1000;
+    const I RUNS = 500;
+
+    std::vector<int32_t> h_in(size);
+    std::vector<int32_t> h_out(size, 0);
+
+    for (I i = 0; i < size; ++i) {
+        h_in[i] = input[i];
+    }
+
+    uint32_t* d_dyn_idx_ptr;
+    int32_t *d_in, *d_out;
+    State<Tuple<I>> *d_states;
+    gpuAssert(cudaMalloc((void**)&d_dyn_idx_ptr, sizeof(uint32_t)));
+    cudaMemset(d_dyn_idx_ptr, 0, sizeof(uint32_t));
+    gpuAssert(cudaMalloc((void**)&d_states, STATES_BYTES));
+    gpuAssert(cudaMalloc((void**)&d_in, ARRAY_BYTES));
+    gpuAssert(cudaMalloc((void**)&d_out, ARRAY_BYTES));
+    gpuAssert(cudaMemset(d_states, 0, STATES_BYTES));
+    gpuAssert(cudaMemcpy(d_in, h_in.data(), ARRAY_BYTES, cudaMemcpyHostToDevice));
+    
+    Predicate pred;
+
+    float * temp = (float *) malloc(sizeof(float) * RUNS);
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    for (I i = 0; i < WARMUP_RUNS; ++i) {
+        partitionUnordered<int32_t, I, Predicate, BLOCK_SIZE, ITEMS_PER_THREAD><<<NUM_LOGICAL_BLOCKS, BLOCK_SIZE>>>(d_in, d_out, d_states, size, NUM_LOGICAL_BLOCKS, pred, d_dyn_idx_ptr);
+        cudaDeviceSynchronize();
+        cudaMemset(d_dyn_idx_ptr, 0, sizeof(uint32_t));
+        gpuAssert(cudaPeekAtLastError());
+        gpuAssert(cudaMemset(d_states, 0, STATES_BYTES));
+    }
+
+    for (I i = 0; i < RUNS; ++i) {
+        cudaEventRecord(start, 0);
+        partitionUnordered<int32_t, I, Predicate, BLOCK_SIZE, ITEMS_PER_THREAD><<<NUM_LOGICAL_BLOCKS, BLOCK_SIZE>>>(d_in, d_out, d_states, size, NUM_LOGICAL_BLOCKS, pred, d_dyn_idx_ptr);
+        cudaDeviceSynchronize();
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(temp + i, start, stop);
+        cudaMemset(d_dyn_idx_ptr, 0, sizeof(uint32_t));
+        gpuAssert(cudaPeekAtLastError());
+        gpuAssert(cudaMemset(d_states, 0, STATES_BYTES));
+    }
+
+    gpuAssert(cudaPeekAtLastError());
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+
+    size_t moved_bytes = 2 * ARRAY_BYTES;
+
+    compute_descriptors(temp, RUNS, moved_bytes);
+
+    free(temp);
+    gpuAssert(cudaFree(d_in));
+    gpuAssert(cudaFree(d_out));
+    gpuAssert(cudaFree(d_states));
+    gpuAssert(cudaFree(d_dyn_idx_ptr));
+}
+
 void testPartitionCoalescedWrite(int32_t* input, size_t input_size, int32_t* expected, size_t expected_size) {
     using I = uint32_t;
     const I size = input_size;
@@ -498,6 +621,8 @@ int main(int32_t argc, char *argv[]) {
     printf("%s:\n", argv[1]);
     printf(PAD, "Partition:");
     testPartition(input, input_size, expected, expected_size);
+    printf(PAD, "Partition Unordered:");
+    testPartitionUnordered(input, input_size, expected, expected_size);
     printf(PAD, "Partition Coalesced Write:");
     testPartitionCoalescedWrite(input, input_size, expected, expected_size);
     printf(PAD, "Partition (CUB):");   

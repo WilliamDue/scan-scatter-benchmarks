@@ -127,37 +127,49 @@ Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s
 More runs automatically performed for up to 300s to ensure accurate measurement.
 
 futhark_partition.fut (no tuning file):
-../data/randomints_full_500MiB.in:           7761μs (95% CI: [    7743.2,     7782.0])
-../data/randomints_dense_500MiB.in:          7748μs (95% CI: [    7738.5,     7763.8])
-../data/randomints_moderate_500MiB.in:       7748μs (95% CI: [    7733.8,     7771.6])
-../data/randomints_sparse_500MiB.in:         7779μs (95% CI: [    7760.4,     7805.4])
-../data/randomints_empty_500MiB.in:          7758μs (95% CI: [    7739.1,     7784.2])
+../data/randomints_full_500MiB.in:           8367μs (95% CI: [    8322.7,     8405.4])
+../data/randomints_dense_500MiB.in:          8220μs (95% CI: [    8155.0,     8283.7])
+../data/randomints_moderate_500MiB.in:       8151μs (95% CI: [    8075.4,     8226.3])
+../data/randomints_sparse_500MiB.in:         8154μs (95% CI: [    8093.6,     8215.8])
+../data/randomints_empty_500MiB.in:          8184μs (95% CI: [    8107.4,     8257.1])
+
+futhark_partition.fut:unordered (no tuning file):
+../data/randomints_full_500MiB.in:           4185μs (95% CI: [    4151.9,     4222.2])
+../data/randomints_dense_500MiB.in:          4101μs (95% CI: [    4073.8,     4128.2])
+../data/randomints_moderate_500MiB.in:       4111μs (95% CI: [    4084.2,     4139.1])
+../data/randomints_sparse_500MiB.in:         4121μs (95% CI: [    4095.9,     4147.3])
+../data/randomints_empty_500MiB.in:          4120μs (95% CI: [    4091.7,     4148.2])
 [31m===============[39m
 [32m=== CUDA PARTITION ===[39m
 ../data/randomints_full_500MiB.in:
-Partition:                             3850μs (95% CI: [3686.8μs, 4014.0μs]); 408GB/s
-Partition Coalesced Write:             3823μs (95% CI: [3660.1μs, 3984.9μs]); 411GB/s
-Partition (CUB):                       2400μs (95% CI: [2297.8μs, 2501.7μs]); 437GB/s
+Partition:                             3934μs (95% CI: [3766.4μs, 4100.9μs]); 400GB/s
+Partition Unordered:                   2567μs (95% CI: [2457.5μs, 2675.7μs]); 409GB/s
+Partition Coalesced Write:             3912μs (95% CI: [3745.8μs, 4078.5μs]); 403GB/s
+Partition (CUB):                       2483μs (95% CI: [2377.4μs, 2588.5μs]); 423GB/s
 
 ../data/randomints_dense_500MiB.in:
-Partition:                             3939μs (95% CI: [3772.1μs, 4106.8μs]); 399GB/s
-Partition Coalesced Write:             3825μs (95% CI: [3662.8μs, 3987.8μs]); 411GB/s
-Partition (CUB):                       2390μs (95% CI: [2288.5μs, 2491.6μs]); 439GB/s
+Partition:                             4050μs (95% CI: [3877.8μs, 4222.1μs]); 389GB/s
+Partition Unordered:                   2624μs (95% CI: [2512.9μs, 2736.1μs]); 400GB/s
+Partition Coalesced Write:             3933μs (95% CI: [3765.5μs, 4099.8μs]); 400GB/s
+Partition (CUB):                       2477μs (95% CI: [2371.7μs, 2582.4μs]); 424GB/s
 
 ../data/randomints_moderate_500MiB.in:
-Partition:                             3921μs (95% CI: [3754.8μs, 4088.0μs]); 401GB/s
-Partition Coalesced Write:             3840μs (95% CI: [3676.7μs, 4003.0μs]); 410GB/s
-Partition (CUB):                       2391μs (95% CI: [2289.6μs, 2492.8μs]); 439GB/s
+Partition:                             4022μs (95% CI: [3851.5μs, 4193.4μs]); 391GB/s
+Partition Unordered:                   2616μs (95% CI: [2505.0μs, 2727.5μs]); 401GB/s
+Partition Coalesced Write:             3937μs (95% CI: [3770.1μs, 4104.8μs]); 400GB/s
+Partition (CUB):                       2475μs (95% CI: [2369.4μs, 2579.8μs]); 424GB/s
 
 ../data/randomints_sparse_500MiB.in:
-Partition:                             3944μs (95% CI: [3776.4μs, 4111.6μs]); 399GB/s
-Partition Coalesced Write:             3843μs (95% CI: [3679.6μs, 4006.2μs]); 409GB/s
-Partition (CUB):                       2390μs (95% CI: [2288.3μs, 2491.3μs]); 439GB/s
+Partition:                             4041μs (95% CI: [3869.1μs, 4212.8μs]); 390GB/s
+Partition Unordered:                   2630μs (95% CI: [2518.4μs, 2742.0μs]); 399GB/s
+Partition Coalesced Write:             3943μs (95% CI: [3775.8μs, 4111.2μs]); 399GB/s
+Partition (CUB):                       2478μs (95% CI: [2372.9μs, 2583.8μs]); 424GB/s
 
 ../data/randomints_empty_500MiB.in:
-Partition:                             3866μs (95% CI: [3701.4μs, 4029.9μs]); 407GB/s
-Partition Coalesced Write:             3831μs (95% CI: [3668.1μs, 3993.6μs]); 410GB/s
-Partition (CUB):                       2388μs (95% CI: [2286.6μs, 2489.5μs]); 439GB/s
+Partition:                             3963μs (95% CI: [3794.9μs, 4132.0μs]); 397GB/s
+Partition Unordered:                   2588μs (95% CI: [2477.9μs, 2698.0μs]); 406GB/s
+Partition Coalesced Write:             3928μs (95% CI: [3760.9μs, 4094.9μs]); 401GB/s
+Partition (CUB):                       2481μs (95% CI: [2375.3μs, 2586.3μs]); 424GB/s
 [32m============[39m
 make[1]: Leaving directory '/home/due/git/github.com/due/scan-scatter-benchmarks/partition'
 
