@@ -62,12 +62,12 @@ nvcc -O3 --std=c++14 -diag-suppress 550 -o cuda_filter cuda_filter.cu
 Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s).
 More runs automatically performed for up to 300s to ensure accurate measurement.
 
-futhark_filter.fut (no tuning file):
-../data/randomints_full_500MiB.in:           3341μs (95% CI: [    3334.9,     3347.6])
-../data/randomints_dense_500MiB.in:          3106μs (95% CI: [    3104.1,     3108.3])
-../data/randomints_moderate_500MiB.in:       2891μs (95% CI: [    2889.6,     2893.3])
-../data/randomints_sparse_500MiB.in:         2721μs (95% CI: [    2720.5,     2721.9])
-../data/randomints_empty_500MiB.in:          2527μs (95% CI: [    2526.2,     2530.0])
+filter/futhark_filter.fut (no tuning file):
+../data/randomints_full_500MiB.in:          13422μs (95% CI: [   13357.4,    13497.9])
+../data/randomints_dense_500MiB.in:         13412μs (95% CI: [   13333.8,    13487.1])
+../data/randomints_moderate_500MiB.in:      12973μs (95% CI: [   12909.4,    13033.9])
+../data/randomints_sparse_500MiB.in:        12506μs (95% CI: [   12419.6,    12661.2])
+../data/randomints_empty_500MiB.in:         10216μs (95% CI: [   10120.6,    10331.5])
 [31m===============[39m
 [32m=== CUDA FILTER ===[39m
 ../data/randomints_full_500MiB.in:
@@ -126,19 +126,19 @@ nvcc -O3 --std=c++14 -diag-suppress 550 -diag-suppress 20054 -o cuda_partition c
 Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s).
 More runs automatically performed for up to 300s to ensure accurate measurement.
 
-futhark_partition.fut (no tuning file):
-../data/randomints_full_500MiB.in:           8367μs (95% CI: [    8322.7,     8405.4])
-../data/randomints_dense_500MiB.in:          8220μs (95% CI: [    8155.0,     8283.7])
-../data/randomints_moderate_500MiB.in:       8151μs (95% CI: [    8075.4,     8226.3])
-../data/randomints_sparse_500MiB.in:         8154μs (95% CI: [    8093.6,     8215.8])
-../data/randomints_empty_500MiB.in:          8184μs (95% CI: [    8107.4,     8257.1])
+partition/futhark_partition.fut (no tuning file):
+../data/randomints_full_500MiB.in:          20960μs (95% CI: [   20829.7,    21057.5])
+../data/randomints_dense_500MiB.in:         20959μs (95% CI: [   20888.2,    21031.0])
+../data/randomints_moderate_500MiB.in:      21056μs (95% CI: [   20960.7,    21131.1])
+../data/randomints_sparse_500MiB.in:        21082μs (95% CI: [   20985.4,    21146.1])
+../data/randomints_empty_500MiB.in:         21045μs (95% CI: [   20946.7,    21131.2])
 
-futhark_partition.fut:unordered (no tuning file):
-../data/randomints_full_500MiB.in:           4185μs (95% CI: [    4151.9,     4222.2])
-../data/randomints_dense_500MiB.in:          4101μs (95% CI: [    4073.8,     4128.2])
-../data/randomints_moderate_500MiB.in:       4111μs (95% CI: [    4084.2,     4139.1])
-../data/randomints_sparse_500MiB.in:         4121μs (95% CI: [    4095.9,     4147.3])
-../data/randomints_empty_500MiB.in:          4120μs (95% CI: [    4091.7,     4148.2])
+partition/futhark_partition.fut:unordered (no tuning file):
+../data/randomints_full_500MiB.in:          12443μs (95% CI: [   12369.6,    12506.2])
+../data/randomints_dense_500MiB.in:         14161μs (95% CI: [   14091.4,    14213.4])
+../data/randomints_moderate_500MiB.in:      14665μs (95% CI: [   14608.4,    14707.9])
+../data/randomints_sparse_500MiB.in:        14225μs (95% CI: [   14165.6,    14281.3])
+../data/randomints_empty_500MiB.in:         12623μs (95% CI: [   12578.8,    12656.4])
 [31m===============[39m
 [32m=== CUDA PARTITION ===[39m
 ../data/randomints_full_500MiB.in:
@@ -193,19 +193,19 @@ nvcc -O3 --std=c++14 -diag-suppress 550 -diag-suppress 20054 -o cuda_segreduce c
 Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s).
 More runs automatically performed for up to 300s to ensure accurate measurement.
 
-futhark_segreduce.fut (no tuning file):
-($loaddata "../data/randomints_full_500MiB.in", $loaddata "randomints_full_500MiB.flags"):       4386μs (95% CI: [    4383.6,     4388.7])
-($loaddata "../data/randomints_dense_500MiB.in", $loaddata "randomints_dense_500MiB.flags"):       4211μs (95% CI: [    4208.4,     4213.1])
-($loaddata "../data/randomints_moderate_500MiB.in", $loaddata "randomints_moderate_500MiB.flags"):       4114μs (95% CI: [    4111.8,     4115.8])
-($loaddata "../data/randomints_sparse_500MiB.in", $loaddata "randomints_sparse_500MiB.flags"):       4030μs (95% CI: [    4028.5,     4031.4])
-($loaddata "../data/randomints_empty_500MiB.in", $loaddata "randomints_empty_500MiB.flags"):       3929μs (95% CI: [    3927.7,     3930.9])
+segreduce/futhark_segreduce.fut (no tuning file):
+($loaddata "../data/randomints_full_5...:      10919μs (95% CI: [   10855.4,    10972.0])
+($loaddata "../data/randomints_dense_...:      10906μs (95% CI: [   10617.0,    12214.0])
+($loaddata "../data/randomints_modera...:      10346μs (95% CI: [   10278.3,    10418.3])
+($loaddata "../data/randomints_sparse...:       9942μs (95% CI: [    9854.0,    10034.5])
+($loaddata "../data/randomints_empty_...:       8562μs (95% CI: [    8478.5,     8652.0])
 
-futhark_segreduce.fut:expected (no tuning file):
-($loaddata "../data/randomints_full_500MiB.in", $loaddata "randomints_full_500MiB.flags"):      10880μs (95% CI: [   10871.9,    10895.1])
-($loaddata "../data/randomints_dense_500MiB.in", $loaddata "randomints_dense_500MiB.flags"):      10380μs (95% CI: [   10371.5,    10393.6])
-($loaddata "../data/randomints_moderate_500MiB.in", $loaddata "randomints_moderate_500MiB.flags"):       9826μs (95% CI: [    9807.0,     9858.8])
-($loaddata "../data/randomints_sparse_500MiB.in", $loaddata "randomints_sparse_500MiB.flags"):       9027μs (95% CI: [    9015.9,     9052.3])
-($loaddata "../data/randomints_empty_500MiB.in", $loaddata "randomints_empty_500MiB.flags"):       7500μs (95% CI: [    7495.6,     7503.5])
+segreduce/futhark_segreduce.fut:expected (no tuning file):
+($loaddata "../data/randomints_full_5...:      13225μs (95% CI: [   13163.3,    13281.4])
+($loaddata "../data/randomints_dense_...:      12728μs (95% CI: [   12660.4,    12793.1])
+($loaddata "../data/randomints_modera...:      11982μs (95% CI: [   11918.2,    12039.7])
+($loaddata "../data/randomints_sparse...:      10775μs (95% CI: [   10711.1,    10829.8])
+($loaddata "../data/randomints_empty_...:       8567μs (95% CI: [    8516.5,     8624.1])
 [31m===============[39m
 [32m=== CUDA SEGREDUCE ===[39m
 ../data/randomints_full_500MiB.in:
@@ -241,10 +241,10 @@ nvcc -O3 --std=c++14 -diag-suppress 550 -o cuda_lexer cuda_lexer.cu
 Reporting arithmetic mean runtime of at least 10 runs for each dataset (min 0.5s).
 More runs automatically performed for up to 300s to ensure accurate measurement.
 
-futhark_lexer.fut (no tuning file):
-../data/tokens_dense_500MiB.in:         30628μs (95% CI: [   30576.0,    30670.4])
-../data/tokens_moderate_500MiB.in:      19057μs (95% CI: [   19032.6,    19081.3])
-../data/tokens_sparse_500MiB.in:        17332μs (95% CI: [   17314.5,    17350.5])
+lexer/futhark_lexer.fut (no tuning file):
+../data/tokens_dense_500MiB.in:       1897635μs (95% CI: [ 1887453.1,  1914588.1])
+../data/tokens_moderate_500MiB.in:      42542μs (95% CI: [   42429.5,    42675.3])
+../data/tokens_sparse_500MiB.in:        40533μs (95% CI: [   40441.8,    40657.2])
 [31m===============[39m
 [32m=== CUDA LEXER ===[39m
 ../data/tokens_dense_500MiB.in:
