@@ -5,7 +5,7 @@ RED=\u001b[31m
 GREEN=\u001b[32m
 DEFAULT=\033[39m
 
-default: $(TEST) run
+default: run
 
 .PHONY: clean run
 

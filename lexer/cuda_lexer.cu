@@ -329,7 +329,7 @@ lexerTwoKernels1(LexerCtx ctx,
 
     __syncthreads();
 
-    scan<state_t, I, LexerCtx, ITEMS_PER_THREAD>(states, states_aux, state_states, ctx, IDENTITY, dyn_index);
+    scan<state_t, I, LexerCtx, ITEMS_PER_THREAD>(states, states_aux, state_states, ctx, dyn_index);
 
     copyFromShrToGlb<state_t, I, ITEMS_PER_THREAD>(glb_offs, ITEMS_PER_THREAD * blockDim.x, size, states, d_states_out);
     /*
@@ -461,7 +461,7 @@ lexerWorseCopy(LexerCtx ctx,
         next_block_first_state = states[ITEMS_PER_THREAD * BLOCK_SIZE];
     }
 
-    scan<state_t, I, LexerCtx, ITEMS_PER_THREAD>(states, states_aux, state_states, ctx, IDENTITY, dyn_index);
+    scan<state_t, I, LexerCtx, ITEMS_PER_THREAD>(states, states_aux, state_states, ctx, dyn_index);
 
     #pragma unroll
     for (I i = 0; i < ITEMS_PER_THREAD; i++) {
@@ -574,7 +574,7 @@ lexer(LexerCtx ctx,
 
     __syncthreads();
 
-    scan<state_t, I, LexerCtx, ITEMS_PER_THREAD>(states, states_aux, state_states, ctx, IDENTITY, dyn_index);
+    scan<state_t, I, LexerCtx, ITEMS_PER_THREAD>(states, states_aux, state_states, ctx, dyn_index);
 
     #pragma unroll
     for (I i = 0; i < ITEMS_PER_THREAD; i++) {

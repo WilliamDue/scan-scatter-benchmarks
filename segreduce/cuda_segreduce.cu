@@ -111,7 +111,7 @@ segreduce(T* d_in,
 
     __syncthreads();
 
-    scan<Tuple<T, I>, I, AddTuple<T, I, OP>, ITEMS_PER_THREAD>(block, block_aux, states, op, Tuple<T, I>(), dyn_idx);
+    scan<Tuple<T, I>, I, AddTuple<T, I, OP>, ITEMS_PER_THREAD>(block, block_aux, states, op, dyn_idx);
 
     #pragma unroll
     for (I i = 0; i < ITEMS_PER_THREAD; i++) {

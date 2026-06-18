@@ -101,7 +101,7 @@ partition(T* d_in,
     }
     __syncthreads();
 
-    scan<Tuple<I>, I, AddTuple<I>, ITEMS_PER_THREAD>(block, block_aux, states, AddTuple<I>(), Tuple<I>(), dyn_idx);
+    scan<Tuple<I>, I, AddTuple<I>, ITEMS_PER_THREAD>(block, block_aux, states, AddTuple<I>(), dyn_idx);
 
     #pragma unroll
     for (I i = 0; i < ITEMS_PER_THREAD; i++) {
@@ -151,7 +151,7 @@ partitionUnordered(T* d_in,
     }
     __syncthreads();
 
-    scan<Tuple<I>, I, AddTuple<I>, ITEMS_PER_THREAD>(block, block_aux, states, AddTuple<I>(), Tuple<I>(), dyn_idx);
+    scan<Tuple<I>, I, AddTuple<I>, ITEMS_PER_THREAD>(block, block_aux, states, AddTuple<I>(), dyn_idx);
 
     #pragma unroll
     for (I i = 0; i < ITEMS_PER_THREAD; i++) {

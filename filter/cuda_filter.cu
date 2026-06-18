@@ -62,7 +62,7 @@ filter(T* d_in,
     }
     __syncthreads();
 
-    scan<I, I, Add<I>, ITEMS_PER_THREAD>(block, block_aux, states, Add<I>(), 0, dyn_idx);
+    scan<I, I, Add<I>, ITEMS_PER_THREAD>(block, block_aux, states, Add<I>(), dyn_idx);
 
     #pragma unroll
     for (I i = 0; i < ITEMS_PER_THREAD; i++) {
@@ -112,7 +112,7 @@ filterBoolArray(T* d_in,
     }
     __syncthreads();
 
-    scan<I, I, Add<I>, ITEMS_PER_THREAD>(block, block_aux, states, Add<I>(), 0, dyn_idx);
+    scan<I, I, Add<I>, ITEMS_PER_THREAD>(block, block_aux, states, Add<I>(), dyn_idx);
 
     #pragma unroll
     for (I i = 0; i < ITEMS_PER_THREAD; i++) {
@@ -160,7 +160,7 @@ filterTwoKernel1(T* d_in,
     }
     __syncthreads();
 
-    scan<I, I, Add<I>, ITEMS_PER_THREAD>(block, block_aux, states, Add<I>(), 0, dyn_idx);
+    scan<I, I, Add<I>, ITEMS_PER_THREAD>(block, block_aux, states, Add<I>(), dyn_idx);
 
     #pragma unroll
     for (I i = 0; i < ITEMS_PER_THREAD; i++) {

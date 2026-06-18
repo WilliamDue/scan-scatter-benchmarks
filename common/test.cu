@@ -94,14 +94,14 @@ spsScan(T* d_in,
      const T ne,
      volatile uint32_t* dyn_idx_ptr) {
     volatile __shared__ T block[ITEMS_PER_THREAD * BLOCK_SIZE];
-	volatile __shared__ T block_aux[BLOCK_SIZE];
+	  volatile __shared__ T block_aux[BLOCK_SIZE];
     
     uint32_t dyn_idx = dynamicIndex<uint32_t>(dyn_idx_ptr);
     I glb_offs = dyn_idx * BLOCK_SIZE * ITEMS_PER_THREAD;
 
     glbToShmemCpy<T, I, ITEMS_PER_THREAD>(glb_offs, size, ne, d_in, block);
 
-    scan<T, I, OP, ITEMS_PER_THREAD>(block, block_aux, states, op, ne, dyn_idx);
+    scan<T, I, OP, ITEMS_PER_THREAD>(block, block_aux, states, op, dyn_idx);
 
     shmemToGlbCpy<T, I, ITEMS_PER_THREAD>(glb_offs, size, d_out, block);
     

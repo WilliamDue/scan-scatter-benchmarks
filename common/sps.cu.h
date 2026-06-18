@@ -191,18 +191,21 @@ __device__ inline void
 scanWarp(volatile T* values,
          volatile Status* statuses,
          OP op,
-         const uint8_t lane) {
+         const uint8_t lane,
+         const I dyn_idx,
+         const I lookback_warp) {
     uint8_t h;
     const I tid = threadIdx.x;
 
     #pragma unroll
     for (uint8_t d = 0; d < LG_WARP; d++) {
-        if ((h = 1 << d) <= lane) {
+        if ((h = 1 << d) <= lane && (tid - h + dyn_idx) >= lookback_warp) {
             bool is_not_aggregate = statuses[tid] != Aggregate;
             values[tid] = is_not_aggregate ? const_cast<T*>(values)[tid] : op(values[tid - h], values[tid]);
             statuses[tid] = combine(statuses[tid - h], statuses[tid]);
         }
     }
+    __syncwarp();
 }
 
 template<typename T, typename I, typename OP, I ITEMS_PER_THREAD>
@@ -210,13 +213,13 @@ __device__ inline void
 decoupledLookbackScan(volatile State<T>* states,
                       volatile T* shmem,
                       OP op,
-                      const T ne,
                       uint32_t dyn_idx) {
     volatile __shared__ T values[WARP];
     volatile __shared__ Status statuses[WARP];
     volatile __shared__ T shmem_prefix;
     const uint8_t lane = threadIdx.x & (WARP - 1);
     const bool is_first = threadIdx.x == 0;
+    const bool is_first_block = dyn_idx == 0;
 
     T aggregate = shmem[ITEMS_PER_THREAD * blockDim.x - 1];
 
@@ -224,19 +227,20 @@ decoupledLookbackScan(volatile State<T>* states,
         states[dyn_idx].aggregate = aggregate;
     }
     
-    if (dyn_idx == 0 && is_first) {
+    if (is_first_block && is_first) {
         states[dyn_idx].prefix = aggregate;
     }
     
     __threadfence();
-    if (dyn_idx == 0 && is_first) {
+    if (is_first_block && is_first) {
         states[dyn_idx].status = Prefix;
     } else if (is_first) {
         states[dyn_idx].status = Aggregate;
     }
 
-    T prefix = ne;
-    if (threadIdx.x < WARP && dyn_idx != 0) {
+    T prefix;
+    bool is_first_iter = true;
+    if (threadIdx.x < WARP && !is_first_block) {
         I lookback_idx = threadIdx.x + dyn_idx;
         I lookback_warp = WARP;
         Status status = Aggregate;
@@ -248,43 +252,47 @@ decoupledLookbackScan(volatile State<T>* states,
                 values[threadIdx.x] = status == Prefix ? states[idx].prefix : states[idx].aggregate;
             } else {
                 statuses[threadIdx.x] = Aggregate;
-                values[threadIdx.x] = ne;
             }
 
-            scanWarp<T, I, OP>(values, statuses, op, lane);
+            scanWarp<T, I, OP>(values, statuses, op, lane, dyn_idx, lookback_warp);
 
-            T result = values[WARP - 1];
             status = statuses[WARP - 1];
 
             if (status == Invalid)
                 continue;
-                
+
             if (is_first) {
-                prefix = op(result, prefix);
+                if (is_first_iter) {
+                    prefix = values[WARP - 1];
+                } else {
+                    prefix = op(values[WARP - 1], prefix);
+                }
             }
 
             lookback_warp += WARP;
+            is_first_iter = false;
         } while (status != Prefix);
     }
 
-    if (is_first) {
+    if (!is_first_block && is_first) {
         shmem_prefix = prefix;
     }
 
     __syncthreads();
 
     if (is_first) {
-        states[dyn_idx].prefix = op(prefix, aggregate);
+        states[dyn_idx].prefix = is_first_block ? aggregate : op(shmem_prefix, aggregate);
         __threadfence();
         states[dyn_idx].status = Prefix;
     }
-    
-    prefix = shmem_prefix;
+
     const I offset = threadIdx.x * ITEMS_PER_THREAD;
     const I upper = offset + ITEMS_PER_THREAD;
     #pragma unroll
     for (I lid = offset; lid < upper; lid++) {
-        shmem[lid] = op(prefix, shmem[lid]);
+        if (!is_first_block) {
+            shmem[lid] = op(shmem_prefix, shmem[lid]);
+        }
     }
     __syncthreads();
 }
@@ -295,12 +303,11 @@ scan(volatile T* block,
      volatile T* block_aux,
      volatile State<T>* states,
      OP op,
-     const T ne,
      uint32_t dyn_idx) {
     
     scanBlock<T, I, OP, ITEMS_PER_THREAD>(block, block_aux, op);
 
-    decoupledLookbackScan<T, I, OP, ITEMS_PER_THREAD>(states, block, op, ne, dyn_idx);
+    decoupledLookbackScan<T, I, OP, ITEMS_PER_THREAD>(states, block, op, dyn_idx);
 }
 
 template<typename T, typename I, typename OP, I ITEMS_PER_THREAD>
@@ -315,6 +322,7 @@ decoupledLookbackScanNoWrite(volatile State<T>* states,
     volatile __shared__ T shmem_prefix;
     const uint8_t lane = threadIdx.x & (WARP - 1);
     const bool is_first = threadIdx.x == 0;
+    const bool is_first_block = dyn_idx == 0;
 
     T aggregate = shmem[ITEMS_PER_THREAD * blockDim.x - 1];
 
@@ -322,19 +330,20 @@ decoupledLookbackScanNoWrite(volatile State<T>* states,
         states[dyn_idx].aggregate = aggregate;
     }
     
-    if (dyn_idx == 0 && is_first) {
+    if (is_first_block && is_first) {
         states[dyn_idx].prefix = aggregate;
     }
     
     __threadfence();
-    if (dyn_idx == 0 && is_first) {
+    if (is_first_block && is_first) {
         states[dyn_idx].status = Prefix;
     } else if (is_first) {
         states[dyn_idx].status = Aggregate;
     }
 
-    T prefix = ne;
-    if (threadIdx.x < WARP && dyn_idx != 0) {
+    T prefix;
+    bool is_first_iter = true;
+    if (threadIdx.x < WARP && !is_first_block) {
         I lookback_idx = threadIdx.x + dyn_idx;
         I lookback_warp = WARP;
         Status status = Aggregate;
@@ -346,36 +355,45 @@ decoupledLookbackScanNoWrite(volatile State<T>* states,
                 values[threadIdx.x] = status == Prefix ? states[idx].prefix : states[idx].aggregate;
             } else {
                 statuses[threadIdx.x] = Aggregate;
-                values[threadIdx.x] = ne;
             }
 
-            scanWarp<T, I, OP>(values, statuses, op, lane);
+            scanWarp<T, I, OP>(values, statuses, op, lane, dyn_idx, lookback_warp);
 
-            T result = values[WARP - 1];
             status = statuses[WARP - 1];
 
             if (status == Invalid)
                 continue;
                 
             if (is_first) {
-                prefix = op(result, prefix);
+                if (is_first_iter) {
+                    prefix = values[WARP - 1];
+                } else {
+                    prefix = op(values[WARP - 1], prefix);
+                }
             }
 
             lookback_warp += WARP;
+            is_first_iter = false;
         } while (status != Prefix);
     }
 
-    if (is_first) {
+    if (!is_first_block && is_first) {
         shmem_prefix = prefix;
     }
 
     __syncthreads();
 
     if (is_first) {
-        states[dyn_idx].prefix = op(prefix, aggregate);
+        if (!is_first_block) {
+            states[dyn_idx].prefix = op(shmem_prefix, aggregate);
+        }
         __threadfence();
         states[dyn_idx].status = Prefix;
     }
     
-    return shmem_prefix;
+    if (is_first_block) {
+        return ne;
+    } else {
+        return shmem_prefix;
+    }
 }
