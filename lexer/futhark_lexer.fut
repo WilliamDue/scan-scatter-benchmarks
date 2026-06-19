@@ -68,10 +68,11 @@ module mk_lexer(L: lexer_context) = {
                          [](u32, terminal) =
     let endos = traverse str
     in tabulate n (\i -> (i == n - 1 || is_produce endos[i + 1], endos[i], i))
-      |> filter (.0)
-      |> map (\(_, endo, end) ->
-                    (u32.i64 end, to_terminal endo)
+       |> map (\(b, endo, end) ->
+                    (b, u32.i64 end, to_terminal endo)
                 )
+       |> filter (.0)
+       |> map (\(_, e, e') -> (e, e'))
     
   def lex [n] (str: [n]u8): opt ([](u32, terminal)) =
     let result = lex_with_dead str
