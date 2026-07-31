@@ -18,11 +18,11 @@ def segmented_reduce [n] 't
                      (as: [n]t) =
   let as' = segmented_scan op ne flags as
   let segment_ends = rotate 1 flags
-  let segment_end_offsets = segment_ends |> map i64.bool |> scan (+) 0
+  let segment_end_offsets = segment_ends |> map i32.bool |> scan (+) 0
   let num_segments = if n > 0 then last segment_end_offsets else 0
-  let scratch = replicate num_segments ne
+  let scratch = replicate (i64.i32 num_segments) ne
   let index i f = if f then i - 1 else -1
-  in scatter scratch (map2 index segment_end_offsets segment_ends) as'
+  in scatter scratch (map i64.i32 <| map2 index segment_end_offsets segment_ends) as'
 
 def segscan_op op (v0, f0, i0) (v1, f1, i1) =
   (if f1 then v1 else v0 `op` v1, f0 || f1, i0 i64.+ i1)
